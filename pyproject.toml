@@ -8,12 +8,14 @@ authors = ["Tom Forbes <tom@tomforb.es>"]
 python = "^3.8"
 fastapi = "^0.70.0"
 kubernetes_asyncio = "^18.20.0"
-boto3 = "^1.18.58"
-boto3-stubs = "^1.18.57"
+#boto3 = "^1.18.58"
+#boto3-stubs = "^1.18.57"
+uvicorn = {extras = ["standard"], version = "^0.15.0"}
+dask-gateway = "^0.9.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
-pytest-asyncio = "^0.15.1"
+pytest-asyncio = "^0.16.0"
 pytest-black = "^0.3.12"
 
 [build-system]
