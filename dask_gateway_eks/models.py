@@ -31,7 +31,7 @@ class Resources(BaseModel):
 
 
 class ClusterOptions(BaseModel):
-    image: str = "dask"
+    image: str = "dask-eks"
 
     min_workers: Optional[int]
     max_workers: Optional[int]
@@ -60,19 +60,32 @@ class ClusterOptions(BaseModel):
         )
 
 
+class LocalPorts(BaseModel):
+    dask: int
+    dashboard: int
+    gateway: int
+
+
 class Cluster(BaseModel):
     name: str
     owner: str
-    uid: str
-
     status: ClusterState
-
-    start_time: Optional[str]
-    stop_time: Optional[str]
-
     options: Dict[str, Any]
-    scheduler_definition: V1Pod
-    worker_definition: V1Pod
+    local_ports: Optional[LocalPorts]
 
-    class Config:
-        arbitrary_types_allowed = True
+    api_token: Optional[str]
+    tls_cert: Optional[str]
+    tls_key: Optional[str]
+
+
+class ClusterResponse(BaseModel):
+    name: str
+    dashboard_route: str
+    status: ClusterState
+    start_time: Optional[int]
+    stop_time: Optional[int]
+    options: Dict[str, Any]
+
+    # token: Optional[str]
+    tls_cert: Optional[str]
+    tls_key: Optional[str]

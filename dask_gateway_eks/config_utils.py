@@ -20,7 +20,7 @@ def create_pod_definition(
     annotations: Optional[Dict[str, str]] = None,
     labels: Optional[Dict[str, str]] = None,
 ) -> V1Pod:
-    container = V1Container(name="dask", image=image, image_pull_policy="Never")
+    container = V1Container(name="dask-eks", image=image, image_pull_policy="Never")
     if env:
         container.env = [create_env_var(key, value) for key, value in env.items()]
     if resource_requests or resource_limits:

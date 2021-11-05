@@ -1,18 +1,26 @@
+import asyncio
+import base64
 import enum
 import uuid
 from typing import TypeVar, Dict, Optional
 
 
 from .config_utils import create_env_var
-from .models import Cluster, ClusterState, ClusterOptions
+from .models import Cluster, ClusterState, ClusterOptions, LocalPorts
 
 from fastapi import FastAPI, Request
 from kubernetes_asyncio import config as k8s_config
 from kubernetes_asyncio.client.api_client import ApiClient
 from kubernetes_asyncio.client import (
     CustomObjectsApi,
+    CoreV1Api,
     V1Pod,
-    V1ObjectMeta, V1Service, V1ServiceSpec, V1ServicePort, V1ContainerPort,
+    V1ObjectMeta,
+    V1Service,
+    V1ServiceSpec,
+    V1ServicePort,
+    V1ContainerPort,
+    V1Secret,
 )
 
 GROUP = "dask-gateway-eks.github.com"
@@ -64,24 +72,24 @@ def cluster_options_to_k8s_resource(
     k8s_client: ApiClient, name: str, owner: str, options: ClusterOptions
 ) -> dict:
     worker_definition = options.get_worker_pod_definition()
+
+    worker_definition.spec.restart_policy = "OnFailure"
+
     scheduler_definition = options.get_scheduler_pod_definition()
 
     service_definition = V1Service(
         api_version="v1",
         kind="Service",
-        metadata=V1ObjectMeta(
-            name=f"scheduler-service-{name}",
-            namespace=NAMESPACE
-        ),
+        metadata=V1ObjectMeta(name=f"scheduler-service-{name}", namespace=NAMESPACE),
         spec=V1ServiceSpec(
-            selector={
-                "dask/role": "scheduler",
-                "dask/cluster": name
-            },
+            # type="NodePort",
+            selector={"dask/role": "scheduler", "dask/cluster": name},
             ports=[
-                V1ServicePort(port=8787, target_port="dashboard")
-            ]
-        )
+                V1ServicePort(port=8786, target_port="dask", name="dask"),
+                V1ServicePort(port=8787, target_port="dashboard", name="dashboard"),
+                V1ServicePort(port=8788, target_port="gateway", name="gateway"),
+            ],
+        ),
     )
 
     # Add required definitions
@@ -95,20 +103,39 @@ def cluster_options_to_k8s_resource(
         labels={"dask/cluster": name, "dask/role": "worker"},
     )
 
+    worker_env = worker_definition.spec.containers[0].env
     scheduler_env = scheduler_definition.spec.containers[0].env
+    if worker_env is None:
+        worker_env = worker_definition.spec.containers[0].env = []
+    if scheduler_env is None:
+        scheduler_env = scheduler_definition.spec.containers[0].env = []
     # "DASK_GATEWAY_API_URL": self.api_url,
     # "DASK_GATEWAY_API_TOKEN": cluster.token,
     # "DASK_GATEWAY_CLUSTER_NAME": cluster.name,
     scheduler_env.append(create_env_var("DASK_GATEWAY_CLUSTER_NAME", name))
-    scheduler_env.append(create_env_var("DASK_GATEWAY_API_URL", "http://host.docker.internal:8000"))
-    scheduler_env.append(create_env_var("DASK_GATEWAY_API_TOKEN", "test"))
+    scheduler_env.append(
+        create_env_var("DASK_GATEWAY_API_URL", "http://host.docker.internal:8000/api")
+    )
+    scheduler_env.append(
+        create_env_var("DASK_GATEWAY_API_TOKEN", "/etc/dask-credentials/api-token")
+    )
+    scheduler_env.append(create_env_var("DASK_LOGGING__DISTRIBUTED", "info"))
+    worker_env.append(create_env_var("DASK_LOGGING__DISTRIBUTED", "info"))
+
     if scheduler_definition.spec.containers[0].ports is None:
         scheduler_definition.spec.containers[0].ports = []
 
-    scheduler_definition.spec.containers[0].ports.append(V1ContainerPort(
-        container_port=8786,
-        name="dashboard"
-    ))
+    scheduler_definition.spec.containers[0].ports.append(
+        V1ContainerPort(container_port=8787, name="dashboard")
+    )
+
+    scheduler_definition.spec.containers[0].ports.append(
+        V1ContainerPort(container_port=8786, name="dask")
+    )
+
+    scheduler_definition.spec.containers[0].ports.append(
+        V1ContainerPort(container_port=8788, name="gateway")
+    )
 
     scheduler_definition.spec.containers[0].args = [
         "dask-scheduler",
@@ -124,11 +151,13 @@ def cluster_options_to_k8s_resource(
         "dask_gateway.scheduler_preload",
         "--dg-heartbeat-period",
         "0",
+        "--dg-adaptive-period",
+        "3",
     ]
 
     worker_definition.spec.containers[0].args = [
         "dask-worker",
-        f"scheduler-{name}:8786",
+        f"tcp://scheduler-service-{name}:8786",
     ]
 
     return {
@@ -153,7 +182,7 @@ def cluster_options_to_k8s_resource(
                 worker_definition
             ),
             "options": options.dict(),
-            "desiredWorkers": 0
+            "desiredWorkers": 0,
         },
     }
 
@@ -174,16 +203,48 @@ async def create_cluster(k8s_client: ApiClient, options: ClusterOptions, owner: 
     return cluster_name
 
 
+async def wait_for_cluster(k8s_client: ApiClient, name: str):
+    while True:
+        custom_client = CustomObjectsApi(api_client=k8s_client)
+        response = await custom_client.get_namespaced_custom_object(
+            GROUP, "v1alpha1", NAMESPACE, "daskclusters", name
+        )
+        print(response.get("status"))
+        if "status" in response:
+            return
+        await asyncio.sleep(2)
+
+
 async def get_cluster(k8s_client: ApiClient, name: str) -> Cluster:
+    core_client = CoreV1Api(api_client=k8s_client)
     custom_client = CustomObjectsApi(api_client=k8s_client)
     response = await custom_client.get_namespaced_custom_object(
         GROUP, "v1alpha1", NAMESPACE, "daskclusters", name
     )
+    api_token, tls_cert, tls_key = None, None, None
+
+    if response["status"].get("authSecretName"):
+        # Get auth secret value
+        secret_data: V1Secret = await core_client.read_namespaced_secret(
+            name=response["status"]["authSecretName"], namespace=NAMESPACE
+        )
+        api_token = base64.b64decode(secret_data.data["api-token"])
+        tls_cert = base64.b64decode(secret_data.data["tls.ca"])
+        tls_key = base64.b64decode(secret_data.data["tls.key"])
+
+    local_ports = None
+    if response["status"].get("localSchedulerPorts"):
+        local_ports = LocalPorts(**response["status"]["localSchedulerPorts"])
+
     return Cluster(
         name=name,
-        dashboard_route="http://lol",
-        status=ClusterState.RUNNING,
-        options={},
+        owner=response["metadata"]["labels"]["gateway.dask.org/owner"],
+        status=ClusterState(response["status"]["clusterState"]),
+        options=response["spec"]["options"],
+        local_ports=local_ports,
+        api_token=api_token,
+        tls_cert=tls_cert,
+        tls_key=tls_key,
     )
 
 

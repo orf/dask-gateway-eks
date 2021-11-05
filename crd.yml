@@ -37,7 +37,11 @@ spec:
             status:
               type: object
               properties:
+                authSecretName:
+                  type: string
                 clusterState:
+                  type: string
+                clusterCreationState:
                   type: string
                 observedGeneration:
                   type: integer
@@ -57,9 +61,27 @@ spec:
     resource: pods
   - apiVersion: v1
     resource: services
-#    updateStrategy:
-#      method: Recreate
+  - apiVersion: v1
+    resource: secrets
+  - apiVersion: traefik.containo.us/v1alpha1
+    resource: ingressroutetcps
+  - apiVersion: traefik.containo.us/v1alpha1
+    resource: ingressroutes
+  - apiVersion: traefik.containo.us/v1alpha1
+    resource: tlsoptions
   hooks:
     sync:
       webhook:
         url: http://host.docker.internal:8000/sync
+
+---
+
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-dask-prefix
+spec:
+  stripPrefixRegex:
+    regex:
+      - "/gateway-api/[a-z0-9]+/"
+      - "/dashboard/[a-z0-9]+/"
