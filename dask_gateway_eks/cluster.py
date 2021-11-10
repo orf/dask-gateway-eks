@@ -131,6 +131,7 @@ class KubernetesCluster:
                     status=CRDStatus(
                         clusterState=ClusterState.PENDING,
                         clusterCreationState=ClusterCreationState.CREATING_TLS_CONFIG,
+                        authSecretName=secret_definition['metadata']['name']
                     ),
                     children=[secret_definition, tls_definition],
                 )
@@ -151,6 +152,7 @@ class KubernetesCluster:
                     status=CRDStatus(
                         clusterState=ClusterState.PENDING,
                         clusterCreationState=ClusterCreationState.CREATING_SCHEDULER,
+                        authSecretName=secret_definition['metadata']['name']
                     ),
                     children=[
                         secret_definition,
@@ -175,6 +177,7 @@ class KubernetesCluster:
                     status=CRDStatus(
                         clusterState=ClusterState.PENDING,
                         clusterCreationState=ClusterCreationState.CREATING_INGRESSES,
+                        authSecretName=secret_definition['metadata']['name']
                     ),
                     children=[
                         secret_definition,
@@ -188,7 +191,7 @@ class KubernetesCluster:
 
             # If we have completed all of the above, our cluster is running!
             return NewState(
-                status=CRDStatus(clusterState=ClusterState.RUNNING),
+                status=CRDStatus(clusterState=ClusterState.RUNNING, authSecretName=secret_definition['metadata']['name']),
                 children=[
                     secret_definition,
                     scheduler_definition,
@@ -205,7 +208,7 @@ class KubernetesCluster:
                 return NewState(status=CRDStatus(clusterState=ClusterState.FAILED), children=[])
 
             return NewState(
-                status=CRDStatus(clusterState=ClusterState.RUNNING),
+                status=CRDStatus(clusterState=ClusterState.RUNNING, authSecretName=secret_definition['metadata']['name']),
                 children=[
                     secret_definition,
                     scheduler_definition,
@@ -340,6 +343,7 @@ def get_secret_definition(cluster_name: str, client: ApiClient) -> dict:
                 "api-token": base64.b64encode(uuid.uuid4().hex.encode()).decode(),
                 # The per-cluster certificate authority
                 "ca.crt": base64.b64encode(cert_bytes).decode(),
+                "tls.crt": base64.b64encode(cert_bytes).decode(),
                 # The per-cluster TLS key
                 "tls.key": base64.b64encode(key_bytes).decode(),
             },

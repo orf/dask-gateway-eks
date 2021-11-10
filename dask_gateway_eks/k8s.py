@@ -229,19 +229,14 @@ async def get_cluster(k8s_client: ApiClient, name: str) -> Cluster:
             name=response["status"]["authSecretName"], namespace=NAMESPACE
         )
         api_token = base64.b64decode(secret_data.data["api-token"])
-        tls_cert = base64.b64decode(secret_data.data["tls.ca"])
+        tls_cert = base64.b64decode(secret_data.data["ca.crt"])
         tls_key = base64.b64decode(secret_data.data["tls.key"])
-
-    local_ports = None
-    if response["status"].get("localSchedulerPorts"):
-        local_ports = LocalPorts(**response["status"]["localSchedulerPorts"])
 
     return Cluster(
         name=name,
         owner=response["metadata"]["labels"]["gateway.dask.org/owner"],
         status=ClusterState(response["status"]["clusterState"]),
         options=response["spec"]["options"],
-        local_ports=local_ports,
         api_token=api_token,
         tls_cert=tls_cert,
         tls_key=tls_key,

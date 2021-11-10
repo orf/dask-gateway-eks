@@ -31,7 +31,7 @@ class Resources(BaseModel):
 
 
 class ClusterOptions(BaseModel):
-    image: str = "dask-eks"
+    image: str
 
     min_workers: Optional[int]
     max_workers: Optional[int]

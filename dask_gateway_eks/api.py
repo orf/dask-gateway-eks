@@ -35,11 +35,15 @@ def version():
     return {"version": package_version("dask-gateway-eks")}
 
 
+class ClusterOptionsRequest(BaseModel):
+    cluster_options: ClusterOptions
+
+
 @app.post("/api/v1/clusters/")
 async def create_cluster(
-    cluster_options: ClusterOptions, client: k8s.ApiClient = Depends(k8s.client)
+    cluster_options: ClusterOptionsRequest, client: k8s.ApiClient = Depends(k8s.client)
 ):
-    return {"name": await k8s.create_cluster(client, cluster_options, owner="tom")}
+    return {"name": await k8s.create_cluster(client, cluster_options.cluster_options, owner="tom")}
 
 
 @app.delete("/api/v1/clusters/{cluster_name}")
