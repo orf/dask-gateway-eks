@@ -1,13 +1,13 @@
-from typing import Dict, Union, Optional, Any
+from typing import Dict, Optional, Union
 
 from kubernetes_asyncio.client import (
-    V1Pod,
-    V1PodSpec,
     V1Container,
     V1EnvVar,
     V1EnvVarSource,
-    V1ResourceRequirements,
     V1ObjectMeta,
+    V1Pod,
+    V1PodSpec,
+    V1ResourceRequirements,
 )
 
 

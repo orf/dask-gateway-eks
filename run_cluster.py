@@ -1,7 +1,6 @@
 import time
 
 from dask.distributed import Client
-
 from dask_gateway import GatewayCluster
 
 

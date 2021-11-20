@@ -2,26 +2,25 @@ import asyncio
 import base64
 import enum
 import uuid
-from typing import TypeVar, Dict, Optional
-
-
-from .config_utils import create_env_var
-from .models import Cluster, ClusterState, ClusterOptions, LocalPorts
+from typing import Dict, Optional, TypeVar
 
 from fastapi import FastAPI, Request
 from kubernetes_asyncio import config as k8s_config
-from kubernetes_asyncio.client.api_client import ApiClient
 from kubernetes_asyncio.client import (
-    CustomObjectsApi,
     CoreV1Api,
-    V1Pod,
-    V1ObjectMeta,
-    V1Service,
-    V1ServiceSpec,
-    V1ServicePort,
+    CustomObjectsApi,
     V1ContainerPort,
+    V1ObjectMeta,
+    V1Pod,
     V1Secret,
+    V1Service,
+    V1ServicePort,
+    V1ServiceSpec,
 )
+from kubernetes_asyncio.client.api_client import ApiClient
+
+from .config_utils import create_env_var
+from .models import Cluster, ClusterOptions, ClusterState
 
 GROUP = "dask-gateway-eks.github.com"
 NAMESPACE = "default"
@@ -54,11 +53,7 @@ async def create_eks_client() -> ApiClient:
     return ApiClient()
 
 
-def _set_labels(
-    definition: V1Pod,
-    labels: Dict[str, str],
-    name: Optional[str] = None,
-):
+def _set_labels(definition: V1Pod, labels: Dict[str, str], name: Optional[str] = None):
     if definition.metadata is None:
         definition.metadata = V1ObjectMeta()
     if definition.metadata.labels is None:
@@ -98,10 +93,7 @@ def cluster_options_to_k8s_resource(
         labels={"dask/cluster": name, "dask/role": "scheduler"},
         name=f"scheduler-{name}",
     )
-    _set_labels(
-        worker_definition,
-        labels={"dask/cluster": name, "dask/role": "worker"},
-    )
+    _set_labels(worker_definition, labels={"dask/cluster": name, "dask/role": "worker"})
 
     worker_env = worker_definition.spec.containers[0].env
     scheduler_env = scheduler_definition.spec.containers[0].env
@@ -194,11 +186,7 @@ async def create_cluster(k8s_client: ApiClient, options: ClusterOptions, owner: 
     )
     custom_client = CustomObjectsApi(api_client=k8s_client)
     await custom_client.create_namespaced_custom_object(
-        GROUP,
-        "v1alpha1",
-        NAMESPACE,
-        "daskclusters",
-        definition,
+        GROUP, "v1alpha1", NAMESPACE, "daskclusters", definition
     )
     return cluster_name
 

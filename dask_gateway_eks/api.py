@@ -1,24 +1,19 @@
 import asyncio
-import base64
-import collections
 import time
-from http import HTTPStatus
 import uuid
-from typing import Optional, List, Union
+from http import HTTPStatus
+from importlib.metadata import version as package_version
+from typing import List, Optional, Union
 
 import aiohttp
-from fastapi import FastAPI, Depends
-
-from importlib.metadata import version as package_version
-
-from kubernetes_asyncio.client import V1Secret, V1ObjectMeta
+from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import Response
 
 from . import k8s, scheduler_coms
 from .cluster import KubernetesCluster
-from .models import ClusterOptions, ClusterState, ClusterResponse
+from .models import ClusterOptions, ClusterResponse
 
 app = FastAPI()
 k8s.setup_k8s_client(app)

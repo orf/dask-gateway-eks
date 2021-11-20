@@ -1,9 +1,10 @@
 from enum import Enum
-from typing import Dict, Optional, Any
-from . import config_utils
+from typing import Any, Dict, Optional
 
-from kubernetes_asyncio.client import V1PodSpec, V1Pod
-from pydantic import BaseModel, Field
+from kubernetes_asyncio.client import V1Pod
+from pydantic import BaseModel
+
+from . import config_utils
 
 
 class ClusterState(str, Enum):
@@ -45,7 +46,7 @@ class ClusterOptions(BaseModel):
         return config_utils.create_pod_definition(
             image=self.image,
             resource_requests=self.scheduler_resources.to_requests()
-            if self.scheduler_resources
+            if self.scheduler_resources is not None
             else None,
             env=self.environment or {},
         )
@@ -54,7 +55,7 @@ class ClusterOptions(BaseModel):
         return config_utils.create_pod_definition(
             image=self.image,
             resource_requests=self.worker_resources.to_requests()
-            if self.scheduler_resources
+            if self.worker_resources is not None
             else None,
             env=self.environment or {},
         )
