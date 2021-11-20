@@ -1,9 +1,8 @@
 import base64
-import dataclasses
 import enum
 import uuid
 from functools import cached_property
-from typing import Dict, Optional, TypedDict, List
+from typing import Dict, Optional, TypedDict, List, Iterable
 
 from kubernetes_asyncio.client import (
     V1Secret,
@@ -17,7 +16,6 @@ from .certificates import new_keypair
 from .models import ClusterState
 from .k8s import ApiClient
 import logging
-
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -50,10 +48,10 @@ class KubernetesCluster:
     k8s_client: ApiClient
 
     def __init__(
-        self,
-        cluster_definition: dict,
-        children: Dict[str, Dict[str, dict]],
-        k8s_client: ApiClient,
+            self,
+            cluster_definition: dict,
+            children: Dict[str, Dict[str, dict]],
+            k8s_client: ApiClient,
     ):
         self.cluster_definition = cluster_definition
         self.children = children
@@ -79,16 +77,21 @@ class KubernetesCluster:
         logger.info("Old state: %s, new state: %s", self.state, new_state["status"])
         return new_state
 
+    def new_state(self, **kwargs) -> NewState:
+        children = kwargs.pop("children", [])
+        return NewState(status=CRDStatus(**kwargs), children=children)
+
     def _progress(self) -> NewState:
         state = self.state
         # If the cluster has failed or stopped, then we don't want any children.
         # If the cluster is currently stopping, we progress to STOPPED if we have no children.
         if self.state in (
-            ClusterState.FAILED,
-            ClusterState.STOPPED,
-            ClusterState.STOPPING,
+                ClusterState.FAILED,
+                ClusterState.STOPPED,
+                ClusterState.STOPPING,
         ):
-            if not self.children and self.state == ClusterState.STOPPING:
+            has_any_children = any(self.children.values())
+            if not has_any_children and self.state == ClusterState.STOPPING:
                 state = ClusterState.STOPPED
             return NewState(status=CRDStatus(clusterState=state), children=[])
 
@@ -138,9 +141,9 @@ class KubernetesCluster:
 
             # Next we create our scheduler pod and service, and wait until the scheduler is not pending
             if (
-                service_definition is None
-                or self.scheduler_pod is None
-                or pod_status(self.scheduler_pod) == "Pending"
+                    service_definition is None
+                    or self.scheduler_pod is None
+                    or pod_status(self.scheduler_pod) == "Pending"
             ):
                 scheduler_definition = self.create_scheduler_definition(
                     secret_definition["metadata"]["name"]
@@ -191,7 +194,8 @@ class KubernetesCluster:
 
             # If we have completed all of the above, our cluster is running!
             return NewState(
-                status=CRDStatus(clusterState=ClusterState.RUNNING, authSecretName=secret_definition['metadata']['name']),
+                status=CRDStatus(clusterState=ClusterState.RUNNING,
+                                 authSecretName=secret_definition['metadata']['name']),
                 children=[
                     secret_definition,
                     scheduler_definition,
@@ -207,8 +211,24 @@ class KubernetesCluster:
             if not self.scheduler_pod or pod_status(self.scheduler_pod) != "Running":
                 return NewState(status=CRDStatus(clusterState=ClusterState.FAILED), children=[])
 
+            # Let's scale!
+            desired_workers = self.cluster_definition["spec"]["desiredWorkers"]
+            print("Desired workers", desired_workers)
+
+            worker_definitions = [get_minimal_definition(w) for w in self.worker_pods]
+            running_or_pending_pod_count = len([
+                pod
+                for pod in self.worker_pods
+                if pod['status']['phase'] in ("Pending", "Running")
+            ])
+            new_workers_required = desired_workers - running_or_pending_pod_count
+            if new_workers_required > 0:
+                # Scale up!
+                secret_name = secret_definition["metadata"]["name"]
+                worker_definitions.extend(self.create_worker_definitions(secret_name, new_workers_required))
             return NewState(
-                status=CRDStatus(clusterState=ClusterState.RUNNING, authSecretName=secret_definition['metadata']['name']),
+                status=CRDStatus(clusterState=ClusterState.RUNNING,
+                                 authSecretName=secret_definition['metadata']['name']),
                 children=[
                     secret_definition,
                     scheduler_definition,
@@ -216,6 +236,7 @@ class KubernetesCluster:
                     tls_definition,
                     tcp_ingress_definition,
                     http_ingress_definition,
+                    *worker_definitions
                 ],
             )
 
@@ -229,7 +250,6 @@ class KubernetesCluster:
             raise RuntimeError(
                 f"Resource type {resource_type} has {len(children)} children. Expected 1."
             )
-        # return list(children.values())[0]
         return get_minimal_definition(list(children.values())[0])
 
     @cached_property
@@ -255,17 +275,34 @@ class KubernetesCluster:
 
     def create_scheduler_definition(self, auth_secret_name: str) -> dict:
         scheduler_definition = self.cluster_definition["spec"]["scheduler_definition"]
-        return update_pod_definition(
+        return add_credentials_to_pod_definition(
             scheduler_definition, self.cluster_name, auth_secret_name
         )
+
+    def create_worker_definitions(self, auth_secret_name: str, count: int) -> Iterable[dict]:
+        worker_definition = self.cluster_definition["spec"]["worker_definition"]
+        worker_definition_with_secrets = add_credentials_to_pod_definition(
+            worker_definition, self.cluster_name, auth_secret_name
+        )
+        worker_definition_with_secrets["spec"]["containers"][0]["args"] = [
+            "dask-worker",
+            f"tcp://{self.scheduler_pod['status']['podIP']}:8786",
+        ]
+        for _ in range(count):
+            new_metadata = worker_definition_with_secrets["metadata"].copy()
+            new_metadata["name"] = f"worker-{self.cluster_name}-{uuid.uuid4().hex[:10]}"
+            yield {
+                **worker_definition,
+                "metadata": new_metadata
+            }
 
 
 def pod_status(definition: dict) -> str:
     return definition["status"]["phase"]
 
 
-def update_pod_definition(
-    definition: dict, cluster_name: str, auth_secret_name: str
+def add_credentials_to_pod_definition(
+        definition: dict, cluster_name: str, auth_secret_name: str
 ) -> dict:
     """
     Updates a given definition with some values that should always be present.
@@ -314,7 +351,7 @@ def get_dask_service_definition(cluster_name: str, client: ApiClient) -> dict:
         V1Service(
             api_version="v1",
             kind="Service",
-            metadata=V1ObjectMeta(name=f"scheduler-service-{cluster_name}"),
+            metadata=V1ObjectMeta(name=f"scheduler-{cluster_name}"),
             spec=V1ServiceSpec(
                 # type="NodePort",
                 selector={"dask/role": "scheduler", "dask/cluster": cluster_name},
@@ -370,7 +407,7 @@ def get_tls_options(cluster_name: str, tls_secret_name: str) -> dict:
 
 
 def get_traefik_tcp_ingress_route(
-    cluster_name: str, scheduler_name: str, tls_options_name: str, tls_secrets_name: str
+        cluster_name: str, scheduler_name: str, tls_options_name: str, tls_secrets_name: str
 ) -> dict:
     """
     Get the TCP ingress route used to route external connections to the scheduler.
@@ -392,6 +429,7 @@ def get_traefik_tcp_ingress_route(
                 "options": {"name": tls_options_name},
                 "secretName": tls_secrets_name,
                 "domains": [{"main": f"daskgateway-{cluster_name}"}],
+                "passthrough": False,
             },
         },
     }
@@ -414,13 +452,15 @@ def get_traefik_http_ingress_routes(cluster_name: str, scheduler_name: str) -> d
                 {
                     "kind": "Rule",
                     "match": f"PathPrefix(`/gateway-api/{cluster_name}/`)",
-                    "middlewares": [{"name": "strip-dask-prefix"}],
+                    "middlewares": [{"name": "common-dask-middleware"}],
                     "services": [{"name": scheduler_name, "port": "gateway"}],
                 },
                 {
                     "kind": "Rule",
                     "match": f"PathPrefix(`/dashboard/{cluster_name}/`)",
-                    "middlewares": [{"name": "strip-dask-prefix"}],
+                    "middlewares": [
+                        {"name": "common-dask-middleware"},
+                    ],
                     "services": [{"name": scheduler_name, "port": "dashboard"}],
                 },
             ]

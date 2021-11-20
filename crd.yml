@@ -73,9 +73,18 @@ spec:
     sync:
       webhook:
         url: http://host.docker.internal:8000/sync
-
 ---
-
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: common-dask-middleware
+spec:
+  chain:
+    middlewares:
+      - name: redirect-dask-dashboard
+      - name: compress-dask-dashboard
+      - name: strip-dask-prefix
+---
 apiVersion: traefik.containo.us/v1alpha1
 kind: Middleware
 metadata:
@@ -83,5 +92,22 @@ metadata:
 spec:
   stripPrefixRegex:
     regex:
+      # Should only be added when running locally
       - "/gateway-api/[a-z0-9]+/"
       - "/dashboard/[a-z0-9]+/"
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: compress-dask-dashboard
+spec:
+  compress: {}
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-dask-dashboard
+spec:
+  redirectRegex:
+    regex: ^(.*/dashboard/[a-z0-9]+)/$
+    replacement: ${1}/status
