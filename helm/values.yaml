@@ -1,10 +1,10 @@
 replicaCount: 1
 
 image:
-  repository: nginx
+  repository: ghcr.io/orf/dask-gateway-eks
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "master"
 
 imagePullSecrets: []
 nameOverride: ""

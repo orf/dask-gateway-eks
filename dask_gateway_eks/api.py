@@ -53,20 +53,19 @@ async def stop_cluster(cluster_name: str, client: k8s.ApiClient = Depends(k8s.cl
 
 @app.post("/api/v1/clusters/{cluster_name}/scale")
 async def scale_cluster(
-    cluster_name: str, count: int, client: k8s.ApiClient = Depends(k8s.client)
+    cluster_name: str, count: int, k8s_client: k8s.ApiClient = Depends(k8s.client),
+    http_client: aiohttp.ClientSession = Depends(scheduler_coms.client),
 ):
-    return await k8s.set_cluster_replicas(client, cluster_name, count)
-    # cluster = await k8s.get_cluster(client, cluster_name)
-    # await cluster_coms.scale_cluster(cluster, count)
-
-
-def _get_worker(worker_definition: dict, name: Optional[str] = None):
-    metadata = worker_definition["metadata"].copy()
-    if not name:
-        cluster_name = metadata["labels"]["dask/cluster"]
-        name = f"worker-{cluster_name}-{uuid.uuid4().hex[:6]}"
-    metadata["name"] = name
-    return {**worker_definition, "metadata": metadata}
+    # To-Do: This should obey the `max-worker` configuration option
+    cluster = await k8s.get_cluster(k8s_client, cluster_name)
+    await scheduler_coms.send_to_scheduler(cluster, http_client, {
+        "op": "scale",
+        "count": count
+    })
+    return {
+        "ok": True,
+        "msg": "to-do"
+    }
 
 
 @app.post("/sync")
@@ -144,17 +143,10 @@ class SchedulerHeartbeat(BaseModel):
 
 @app.post("/api/v1/clusters/{cluster_name}/heartbeat")
 async def cluster_heartbeat(
-    request: Request,
     cluster_name: str,
     heartbeat: SchedulerHeartbeat,
-    # count: int,
-    # active_workers: int,
-    # closing_workers: int,
-    # closed_workers: int,
     client: k8s.ApiClient = Depends(k8s.client),
 ):
-    # cluster = await k8s.get_cluster(client, cluster_name)
     count = heartbeat.count
-    # await k8s.set_cluster_workers(client, cluster_name, )
     await k8s.set_cluster_replicas(client, cluster_name, count)
     return {}

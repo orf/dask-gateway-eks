@@ -72,21 +72,6 @@ def cluster_options_to_k8s_resource(
 
     scheduler_definition = options.get_scheduler_pod_definition()
 
-    service_definition = V1Service(
-        api_version="v1",
-        kind="Service",
-        metadata=V1ObjectMeta(name=f"scheduler-service-{name}", namespace=NAMESPACE),
-        spec=V1ServiceSpec(
-            # type="NodePort",
-            selector={"dask/role": "scheduler", "dask/cluster": name},
-            ports=[
-                V1ServicePort(port=8786, target_port="dask", name="dask"),
-                V1ServicePort(port=8787, target_port="dashboard", name="dashboard"),
-                V1ServicePort(port=8788, target_port="gateway", name="gateway"),
-            ],
-        ),
-    )
-
     # Add required definitions
     _set_labels(
         scheduler_definition,
@@ -101,9 +86,6 @@ def cluster_options_to_k8s_resource(
         worker_env = worker_definition.spec.containers[0].env = []
     if scheduler_env is None:
         scheduler_env = scheduler_definition.spec.containers[0].env = []
-    # "DASK_GATEWAY_API_URL": self.api_url,
-    # "DASK_GATEWAY_API_TOKEN": cluster.token,
-    # "DASK_GATEWAY_CLUSTER_NAME": cluster.name,
     scheduler_env.append(create_env_var("DASK_GATEWAY_CLUSTER_NAME", name))
     scheduler_env.append(
         create_env_var("DASK_GATEWAY_API_URL", "http://host.docker.internal:8000/api")
@@ -117,17 +99,11 @@ def cluster_options_to_k8s_resource(
     if scheduler_definition.spec.containers[0].ports is None:
         scheduler_definition.spec.containers[0].ports = []
 
-    scheduler_definition.spec.containers[0].ports.append(
-        V1ContainerPort(container_port=8787, name="dashboard")
-    )
-
-    scheduler_definition.spec.containers[0].ports.append(
-        V1ContainerPort(container_port=8786, name="dask")
-    )
-
-    scheduler_definition.spec.containers[0].ports.append(
+    scheduler_definition.spec.containers[0].ports.extend([
+        V1ContainerPort(container_port=8787, name="dashboard"),
+        V1ContainerPort(container_port=8786, name="dask"),
         V1ContainerPort(container_port=8788, name="gateway")
-    )
+    ])
 
     scheduler_definition.spec.containers[0].args = [
         "dask-scheduler",
@@ -167,9 +143,6 @@ def cluster_options_to_k8s_resource(
             "scheduler_definition": k8s_client.sanitize_for_serialization(
                 scheduler_definition
             ),
-            "scheduler_service_definition": k8s_client.sanitize_for_serialization(
-                service_definition
-            ),
             "worker_definition": k8s_client.sanitize_for_serialization(
                 worker_definition
             ),
@@ -197,7 +170,6 @@ async def wait_for_cluster(k8s_client: ApiClient, name: str):
         response = await custom_client.get_namespaced_custom_object(
             GROUP, "v1alpha1", NAMESPACE, "daskclusters", name
         )
-        print(response.get("status"))
         if "status" in response:
             return
         await asyncio.sleep(2)

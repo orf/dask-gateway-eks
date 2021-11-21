@@ -11,7 +11,7 @@ RUN --mount=type=cache,target=/root/.cache/ \
 COPY pyproject.toml poetry.lock ./
 
 RUN --mount=type=cache,target=/root/.cache/pypoetry/cache/ \
-    poetry install --no-root
+    poetry install --no-root -E server
 COPY . .
 
 ENTRYPOINT [ "poetry", "run" ]

@@ -1,3 +1,5 @@
+from typing import Union, Dict
+
 import aiohttp
 import backoff
 from aiohttp import ClientError
@@ -28,7 +30,7 @@ def client(request: Request) -> aiohttp.ClientSession:
     backoff.expo, (ClientError, HttpProcessingError, HTTPException), max_tries=5
 )
 async def send_to_scheduler(
-    cluster: Cluster, http_client: aiohttp.ClientSession, message: dict
+    cluster: Cluster, http_client: aiohttp.ClientSession, message: Dict[str, Union[str, int]]
 ):
     response = await http_client.post(
         f"http://localhost/gateway-api/{cluster.name}/api/comm",

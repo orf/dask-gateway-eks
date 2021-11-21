@@ -6,14 +6,21 @@ authors = ["Tom Forbes <tom@tomforb.es>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-fastapi = "^0.70.0"
-kubernetes_asyncio = "^18.20.0"
+
 boto3 = "*"
 boto3-stubs = {extras = ["iam"], version = "*"}
-uvicorn = {extras = ["standard"], version = "^0.15.0"}
 dask-gateway = "^0.9.0"
-cryptography = "^35.0.0"
-backoff = "^1.0"
+
+# Server dependencies
+fastapi = {version="^0.70.0", optional = true}
+uvicorn = {extras = ["standard"], version = "^0.15.0", optional=true}
+kubernetes_asyncio = {version="^18.20.0", optional = true}
+sentry-sdk = {version="^1.0.0", optional=true}
+backoff = {version="^1.0", optional=true}
+cryptography = {version="^35.0.0", optional = true}
+
+[tool.poetry.extras]
+server = ["fastapi", "kubernetes_asyncio", "sentry-sdk", "backoff", "cryptography", "uvicorn"]
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"

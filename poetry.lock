@@ -34,7 +34,7 @@ name = "anyio"
 version = "3.3.4"
 description = "High level compatibility layer for multiple asynchronous event loop implementations"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.6.2"
 
 [package.dependencies]
@@ -59,7 +59,7 @@ name = "asgiref"
 version = "3.4.1"
 description = "ASGI specs, helper code, and adapters"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.6"
 
 [package.extras]
@@ -111,7 +111,7 @@ name = "backoff"
 version = "1.11.1"
 description = "Function decoration for backoff and retry"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
 [[package]]
@@ -525,7 +525,7 @@ name = "certifi"
 version = "2021.10.8"
 description = "Python package for providing Mozilla's CA Bundle."
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 
 [[package]]
@@ -533,7 +533,7 @@ name = "cffi"
 version = "1.15.0"
 description = "Foreign Function Interface for Python calling C code."
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 
 [package.dependencies]
@@ -590,7 +590,7 @@ name = "cryptography"
 version = "35.0.0"
 description = "cryptography is a package which provides cryptographic recipes and primitives to Python developers."
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.6"
 
 [package.dependencies]
@@ -687,7 +687,7 @@ name = "fastapi"
 version = "0.70.0"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.6.1"
 
 [package.dependencies]
@@ -755,7 +755,7 @@ name = "h11"
 version = "0.12.0"
 description = "A pure-Python, bring-your-own-I/O implementation of HTTP/1.1"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.6"
 
 [[package]]
@@ -771,7 +771,7 @@ name = "httptools"
 version = "0.2.0"
 description = "A collection of framework independent HTTP protocol utils."
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 
 [package.extras]
@@ -878,7 +878,7 @@ name = "kubernetes-asyncio"
 version = "18.20.0"
 description = "Kubernetes asynchronous python client"
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 
 [package.dependencies]
@@ -1123,7 +1123,7 @@ name = "pycparser"
 version = "2.21"
 description = "C parser in Python"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
@@ -1131,7 +1131,7 @@ name = "pydantic"
 version = "1.8.2"
 description = "Data validation and settings management using python 3.6 type hinting"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.6.1"
 
 [package.dependencies]
@@ -1224,7 +1224,7 @@ name = "python-dotenv"
 version = "0.19.2"
 description = "Read key-value pairs from a .env file and set them as environment variables"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.5"
 
 [package.extras]
@@ -1261,6 +1261,35 @@ botocore = ">=1.12.36,<2.0a.0"
 crt = ["botocore[crt] (>=1.20.29,<2.0a.0)"]
 
 [[package]]
+name = "sentry-sdk"
+version = "1.5.0"
+description = "Python client for Sentry (https://sentry.io)"
+category = "main"
+optional = true
+python-versions = "*"
+
+[package.dependencies]
+certifi = "*"
+urllib3 = ">=1.10.0"
+
+[package.extras]
+aiohttp = ["aiohttp (>=3.5)"]
+beam = ["apache-beam (>=2.12)"]
+bottle = ["bottle (>=0.12.13)"]
+celery = ["celery (>=3)"]
+chalice = ["chalice (>=1.16.0)"]
+django = ["django (>=1.8)"]
+falcon = ["falcon (>=1.4)"]
+flask = ["flask (>=0.11)", "blinker (>=1.1)"]
+httpx = ["httpx (>=0.16.0)"]
+pure_eval = ["pure-eval", "executing", "asttokens"]
+pyspark = ["pyspark (>=2.4.4)"]
+rq = ["rq (>=0.6)"]
+sanic = ["sanic (>=0.8)"]
+sqlalchemy = ["sqlalchemy (>=1.2)"]
+tornado = ["tornado (>=5)"]
+
+[[package]]
 name = "six"
 version = "1.16.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -1273,7 +1302,7 @@ name = "sniffio"
 version = "1.2.0"
 description = "Sniff out which async library your code is running under"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.5"
 
 [[package]]
@@ -1289,7 +1318,7 @@ name = "starlette"
 version = "0.16.0"
 description = "The little ASGI library that shines."
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.6"
 
 [package.dependencies]
@@ -1375,7 +1404,7 @@ name = "uvicorn"
 version = "0.15.0"
 description = "The lightning-fast ASGI server."
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 
 [package.dependencies]
@@ -1398,7 +1427,7 @@ name = "uvloop"
 version = "0.16.0"
 description = "Fast implementation of asyncio event loop on top of libuv"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.7"
 
 [package.extras]
@@ -1430,7 +1459,7 @@ name = "watchgod"
 version = "0.7"
 description = "Simple, modern file watching and code reload in python."
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.5"
 
 [[package]]
@@ -1446,7 +1475,7 @@ name = "websockets"
 version = "10.1"
 description = "An implementation of the WebSocket Protocol (RFC 6455 & 7692)"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.7"
 
 [[package]]
@@ -1472,10 +1501,13 @@ python-versions = "*"
 [package.dependencies]
 heapdict = "*"
 
+[extras]
+server = ["fastapi", "kubernetes_asyncio", "sentry-sdk", "backoff", "cryptography", "uvicorn"]
+
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "1b06236fd2c531fa4988871fa7ed16fd500ea51ebf476bfed66e93acf6f4910d"
+content-hash = "5f7bd342e6d22f0a09b0fced661e3011c77b37e61b22e1b0ba7376baa81d0861"
 
 [metadata.files]
 aiohttp = [
@@ -2351,6 +2383,10 @@ regex = [
 s3transfer = [
     {file = "s3transfer-0.5.0-py3-none-any.whl", hash = "sha256:9c1dc369814391a6bda20ebbf4b70a0f34630592c9aa520856bf384916af2803"},
     {file = "s3transfer-0.5.0.tar.gz", hash = "sha256:50ed823e1dc5868ad40c8dc92072f757aa0e653a192845c94a3b676f4a62da4c"},
+]
+sentry-sdk = [
+    {file = "sentry-sdk-1.5.0.tar.gz", hash = "sha256:789a11a87ca02491896e121efdd64e8fd93327b69e8f2f7d42f03e2569648e88"},
+    {file = "sentry_sdk-1.5.0-py2.py3-none-any.whl", hash = "sha256:0db297ab32e095705c20f742c3a5dac62fe15c4318681884053d0898e5abb2f6"},
 ]
 six = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
